@@ -11,3 +11,10 @@ pip install requests
 
 python Start.py
 ```
+
+#运行
+##Windows
+需要将Start.py, config.json. VanitySearch.exe三个文件放在同一个路径下后，运行Start.py。如果您直接使用Releases中构建好的程序，那么直接双击Start.exe即可运行。
+
+##Linux
+需要将Start.py, config.json. vanitysearch三个文件放在同一个路径下后，运行Start.py。如果您直接使用Releases中构建好的程序，那么在命令行中运行```./Start```即可。
