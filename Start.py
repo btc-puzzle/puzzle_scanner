@@ -8,6 +8,7 @@ import sys
 import random
 import string
 import traceback
+import uuid
 
 #根据系统选择VanitySearch路径
 if os.name == 'nt':
@@ -93,11 +94,6 @@ def load_config():
         print("配置文件中 numberof1 必须为数字！")
         sys.exit(1)
     config["numberof1"] = str(numberof1)
-    
-    if config["workername"] == "default":
-        suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=4))
-        config["workername"] = f"default_{suffix}"
-        
     config["device_name"] = get_gpu_model()
     return config
 
@@ -110,7 +106,8 @@ def get_range(config):
         "nickname": config["nickname"],
         "device_name": config.get("device_name", ""),
         "workername": config["workername"],
-        "numberof1": config["numberof1"]
+        "numberof1": config["numberof1"],
+        "run_id": config["run_id"]
     }
     
     prefix = config.get("prefix", "None")
@@ -142,6 +139,7 @@ def submit_range(config, range_value, proof_of_work, device_name, server_worker)
         "proof_of_work": proof_of_work,
         "device_name": device_name,
         "workername": server_worker,
+        "run_id":    config["run_id"],
         "numberof1": config["numberof1"]
     }
     try:
@@ -251,6 +249,9 @@ def save_target_result(target_result):
 #主程序
 def main():
     config = load_config()
+    run_id = uuid.uuid4().hex[:4]
+    config['run_id'] = run_id
+    config['workername'] = f"{config['workername']}_{run_id}"
     print("【  当前显卡型号  】：", config.get("device_name"))
     
     if not os.path.exists(VANITYSEARCH_PATH):
