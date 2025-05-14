@@ -133,7 +133,7 @@ def get_range(config):
         return {"success": False, "message": "请稍后重试。"}
 
 #提交范围
-def submit_range(config, range_value, proof_of_work, device_name):
+def submit_range(config, range_value, proof_of_work, device_name, server_worker):
 
     url = API_URL.rstrip("/") + "/submit_range"
     headers = {"Authorization": config["token"]}
@@ -141,7 +141,7 @@ def submit_range(config, range_value, proof_of_work, device_name):
         "range": range_value,
         "proof_of_work": proof_of_work,
         "device_name": device_name,
-        "workername": workername,
+        "workername": server_worker,
         "numberof1": config["numberof1"]
     }
     try:
@@ -306,5 +306,9 @@ if __name__ == "__main__":
         traceback.print_exc()
     except SystemExit as se:
         print("程序中断。")
+    print("按任意键退出。。。")
+    getch()
+    if os.name != "nt":
+        os.system("stty sane")
 
 
