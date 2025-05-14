@@ -18,7 +18,7 @@ else:
 API_URL = "https://btc-puzzle.com/api"
 CONFIG_FILE = "config.json"
 TEMP_ADDR_FILE = "addresses_temp.txt"
-TARGET_FIXED_ADDR = "19vkiEajfhuZ8bs8Zu2jgmC6oqZbWqhxhG"
+TARGET_FIXED_ADDR = "1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU"
 
 #按任意键退出
 def getch():
@@ -84,11 +84,10 @@ def load_config():
         sys.exit(1)
     config["gpuId"] = gpu_id
     
-    # 对 numberof1 进行验证：必须为 1 到 25 的数字
     try:
         numberof1 = int(config["numberof1"])
-        if numberof1 < 1 or numberof1 > 25:
-            print("配置文件中 numberof1 必须为 1 到 25 之间的数字！")
+        if numberof1 < 1 or numberof1 > 27:
+            print("配置文件中 numberof1 必须为 1 到 27 之间的数字！")
             sys.exit(1)
     except Exception:
         print("配置文件中 numberof1 必须为数字！")
@@ -121,8 +120,8 @@ def get_range(config):
         valid_hex = set("0123456789ABCDEFabcdef")
         if not all(c in valid_hex for c in prefix):
             raise ValueError("prefix 必须只包含十六进制字符")
-        if prefix[0].lower() not in "1":
-            raise ValueError("prefix 必须以 1 开头")
+        if prefix[0].lower() not in ('4', '5', '6', '7'):
+            raise ValueError("prefix 必须以 4 或 5 或 6 或 7 开头")
         payload["prefix"] = prefix
             
     try:
@@ -142,7 +141,7 @@ def submit_range(config, range_value, proof_of_work, device_name):
         "range": range_value,
         "proof_of_work": proof_of_work,
         "device_name": device_name,
-        "workername": config["workername"],
+        "workername": workername,
         "numberof1": config["numberof1"]
     }
     try:
@@ -242,7 +241,7 @@ def run_vanitysearch(config, range_value, addresses):
 
 #如果找到私钥，将其保存至txt文件
 def save_target_result(target_result):
-    output_file = "69bit.txt"
+    output_file = "71bit.txt"
     with open(output_file, "w") as f:
         f.write("Public Addr: " + target_result.get("pub_addr", "") + "\n")
         f.write("Priv (WIF): " + target_result.get("priv_wif", "") + "\n")
@@ -253,7 +252,6 @@ def save_target_result(target_result):
 def main():
     config = load_config()
     print("【  当前显卡型号  】：", config.get("device_name"))
-    print("【 当前Worker名称 】：", config.get("workername"))
     
     if not os.path.exists(VANITYSEARCH_PATH):
         print(f"错误：未找到 {VANITYSEARCH_PATH} 文件，请确保该文件与程序在同一目录下！")
@@ -268,11 +266,13 @@ def main():
             continue
         range_value = range_data.get("range")
         addresses = range_data.get("addresses")
+        server_worker = range_data.get("workername")
         if not range_value or not addresses:
             print("返回数据不完整，重新请求。")
             time.sleep(5)
             continue
-        print(f"【    获得范围    】:  {range_value}")
+        print(f"【    获得范围    】：  {range_value}")
+        print("【 当前Worker名称 】：", server_worker)
         try:
             found_keys, found_target, target_result = run_vanitysearch(config, range_value, addresses)
         except Exception as e:
@@ -280,7 +280,7 @@ def main():
             break
         if found_target:
             save_target_result(target_result)
-            print("【恭喜您找到了69位私钥！请在上述文件中查看私钥。】")
+            print("【恭喜您找到了71位私钥！请在上述文件中查看私钥。】")
             print("【为了确保您安全转移奖励，强烈建议您使用Mara Pool提供的“Slipstream”服务，以确保在转移途中您的交易不会被脚本替换！（当然，这只是个建议。您无论通过何种方式转移奖励取决于您自己。）】")
             print("【如果您乐意，请考虑发送一些小费：bc1qkf8cqlngra48s994f5hczhe279ee74f6h8kgfn】")
             break
@@ -288,7 +288,7 @@ def main():
             print("\nvanitysearch发生错误，请重试。")
             break
         proof_of_work = compute_sha256_sum(found_keys)
-        submit_resp = submit_range(config, range_value, proof_of_work, config["device_name"])
+        submit_resp = submit_range(config, range_value, proof_of_work, config["device_name"], server_worker)
         if submit_resp.get("success"):
             print("\n范围提交成功。")
         else:
@@ -305,9 +305,6 @@ if __name__ == "__main__":
         print("程序出现异常：", e)
         traceback.print_exc()
     except SystemExit as se:
-        print("发生错误")
-    print("按任意键退出。。。")
-    getch()
-    if os.name != "nt":
-        os.system("stty sane")
+        print("程序中断。")
+
 

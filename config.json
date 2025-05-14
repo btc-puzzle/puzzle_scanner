@@ -2,7 +2,7 @@
     "nickname": "请在此处输入您的用户名",
     "token": "请在此处输入您的Token",
     "gpuId": "0",
-    "workername": "default",
-	"prefix": "None",
-	"numberof1": "请在此处输入前缀中1的个数（只能为1到25中的一个数字）"
+	"workername": "default",
+    "prefix": "None",
+    "numberof1": "请在此处输入前缀中1的个数（只能为1到27中的一个数字）"
 }
