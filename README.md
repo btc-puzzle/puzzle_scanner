@@ -8,6 +8,8 @@ Windows以及Linux客户端均由pyinstaller打包Start.py后形成。
 您也可以直接通过Python运行客户端：
 ```
 pip install requests
+pip intall cysignals
+pip install cryptography
 
 python Start.py
 ```
