@@ -6,11 +6,11 @@ import requests
 import time
 import sys
 import random
-import string
 import traceback
 import uuid
 import errno
 import builtins
+import locale
 from datetime import datetime
 
 
@@ -32,6 +32,7 @@ def force_blocking_stdio():
 
         try:
             import fcntl
+
             for stream in (sys.stdout, sys.stderr):
                 try:
                     fd = stream.fileno()
@@ -73,11 +74,135 @@ force_blocking_stdio()
 builtins.print = safe_print
 
 
+def detect_language() -> str:
+    """Return 'zh' when system language looks Chinese, otherwise 'en'."""
+    candidates = []
+
+    for var in ("LANGUAGE", "LC_ALL", "LC_MESSAGES", "LANG"):
+        val = os.environ.get(var)
+        if val:
+            candidates.append(val)
+
+    try:
+        try:
+            locale.setlocale(locale.LC_ALL, '')
+        except Exception:
+            pass
+
+        loc = locale.getlocale()
+        if loc and loc[0]:
+            candidates.append(loc[0])
+    except Exception:
+        pass
+
+    for candidate in candidates:
+        if candidate and str(candidate).lower().startswith("zh"):
+            return "zh"
+    return "en"
+
+
+
+LANGUAGE = detect_language()
+
+MESSAGES = {
+    "zh": {
+        "config_missing": "配置文件 {file} 不存在，请先创建后再运行。",
+        "config_json_error": "配置文件格式错误：",
+        "missing_field": "配置文件中缺少必要字段：{field}",
+        "gpu_id_not_digit": "配置文件中 gpuId 字段必须为数字！",
+        "number_range_error": "配置文件中 numberof1 必须是 1 到 27 之间的数字！",
+        "number_not_digit": "配置文件中 numberof1 必须为数字！",
+        "prefix_too_long": "prefix 长度必须小于等于 7。",
+        "prefix_not_hex": "prefix 必须只包含十六进制字符。",
+        "prefix_start_invalid": "prefix 必须以 4、5、6 或 7 开头。",
+        "request_range_failed": "请求获取范围失败：",
+        "retry_later": "请稍后重试。",
+        "submit_retry_success": "范围提交在第 {attempt} 次后成功。",
+        "submit_dns_fail": "提交范围失败（第 {attempt} 次，{timestamp}）：{message}",
+        "transient_notice": "检测到临时网络/解析问题，将在 {delay} 秒后重试……",
+        "ctrl_c_stop_retry": "检测到 Ctrl+C，已停止重试。",
+        "start_time_label": "【    开始时间    】：",
+        "scanning_label": "【   扫描中...   】",
+        "end_time_label": "【    结束时间    】：",
+        "duration_label": "【    本次耗时    】：",
+        "gpu_model": "【   当前显卡型号   】：",
+        "fetching_range": "【  获取范围中...  】",
+        "get_range_failed": "无法获取范围：",
+        "incomplete_data": "返回数据不完整，重新请求...",
+        "range_received": "【    获得范围    】：",
+        "worker_name": "【 当前Worker名称 】：",
+        "vanity_error_retry": "vanitysearch 发生错误，请重试。",
+        "congrats_found": "【恭喜您找到 71 位私钥！请在上述文件中查看私钥。】",
+        "slipstream_advice": "【为了安全转移奖励，建议使用 Mara Pool 提供的 Slipstream 服务，避免交易被脚本替换。】",
+        "tip_request": "【如果您乐意，请考虑发送一些小费：bc1qkf8cqlngra48s994f5hczhe279ee74f6h8kgfn】",
+        "save_target_result": "【私钥已保存至】：{file}",
+        "submit_success": "范围提交成功。",
+        "submit_failed_reason": "范围提交失败，原因：",
+        "submit_range_failed": "提交范围失败：",
+        "ctrl_c_interrupt": "检测到 Ctrl+C，程序中断。",
+        "program_exception": "程序出现异常：",
+        "program_interrupted": "程序中断。",
+        "program_exit": "按任意键退出...",
+        "file_not_found": "错误：未找到 {path} 文件，请确保该文件与程序在同一目录下！",
+    },
+    "en": {
+        "config_missing": "Config file {file} is missing. Please create it before running.",
+        "config_json_error": "Config file is not valid JSON:",
+        "missing_field": "Missing required field in config: {field}",
+        "gpu_id_not_digit": "Config field gpuId must be numeric.",
+        "number_range_error": "Config field numberof1 must be a number between 1 and 27.",
+        "number_not_digit": "Config field numberof1 must be numeric.",
+        "prefix_too_long": "prefix must be at most 7 characters long.",
+        "prefix_not_hex": "prefix must contain only hexadecimal characters.",
+        "prefix_start_invalid": "prefix must start with 4, 5, 6, or 7.",
+        "request_range_failed": "Failed to request a range:",
+        "retry_later": "Please try again later.",
+        "submit_retry_success": "Range submission succeeded in attempt {attempt}.",
+        "submit_dns_fail": "Submit range failed (attempt {attempt}, {timestamp}): {message}",
+        "transient_notice": "Detected a temporary network/DNS issue; retrying in {delay} seconds…",
+        "ctrl_c_stop_retry": "Ctrl+C detected, stopping retries.",
+        "start_time_label": "[      Start Time      ]:",
+        "scanning_label": "[       Scanning...    ]",
+        "end_time_label": "[       End Time       ]:",
+        "duration_label": "[       Elapsed        ]:",
+        "gpu_model": "[       GPU Model      ]:",
+        "fetching_range": "[   Fetching range...  ]",
+        "get_range_failed": "Unable to get range:",
+        "incomplete_data": "Incomplete response; requesting again...",
+        "range_received": "[        Range         ]:",
+        "worker_name": "[     Worker Name      ]:",
+        "vanity_error_retry": "vanitysearch encountered an error; please retry.",
+        "congrats_found": "[Congratulations! A 71-bit private key was found. Check the file above for details.]",
+        "slipstream_advice": "[For safer reward transfer, consider using Mara Pool's Slipstream service to avoid replacement attacks.]",
+        "tip_request": "[If you wish, tips are appreciated: bc1qkf8cqlngra48s994f5hczhe279ee74f6h8kgfn]",
+        "save_target_result": "[Private key saved to]: {file}",
+        "submit_success": "Range submitted successfully.",
+        "submit_failed_reason": "Range submission failed. Reason:",
+        "submit_range_failed": "Submit range failed:",
+        "ctrl_c_interrupt": "Ctrl+C detected; program interrupted.",
+        "program_exception": "An error occurred:",
+        "program_interrupted": "Program interrupted.",
+        "program_exit": "Press any key to exit...",
+        "file_not_found": "Error: {path} not found. Make sure it is in the same directory as this script!",
+    },
+}
+
+
+def t(key: str, **kwargs) -> str:
+    lang = LANGUAGE if LANGUAGE in MESSAGES else "en"
+    template = MESSAGES[lang].get(key) or MESSAGES["en"].get(key, key)
+    try:
+        return template.format(**kwargs)
+    except Exception:
+        return template
+
+
 def now_str():
     try:
         return datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
     except Exception:
         return time.strftime("%Y-%m-%d %H:%M:%S")
+
 
 def format_duration(seconds: float) -> str:
     seconds = int(round(seconds))
@@ -87,8 +212,7 @@ def format_duration(seconds: float) -> str:
     return f"{h:02d}:{m:02d}:{s:02d}"
 
 
-# 根据系统选择VanitySearch路径
-if os.name == 'nt':
+if os.name == "nt":
     VANITYSEARCH_PATH = "VanitySearch.exe"
 else:
     VANITYSEARCH_PATH = "./vanitysearch"
@@ -98,13 +222,15 @@ CONFIG_FILE = "config.json"
 TEMP_ADDR_FILE = "addresses_temp.txt"
 TARGET_FIXED_ADDR = "1PWo3JeB9jrGwfHDNpdGK54CRas7fsVzXU"
 
-# 按任意键退出
+
 def getch():
-    if os.name == 'nt':
+    if os.name == "nt":
         import msvcrt
+
         return msvcrt.getch()
     else:
         import sys as _sys, tty, termios
+
         fd = _sys.stdin.fileno()
         old_settings = termios.tcgetattr(fd)
         try:
@@ -114,14 +240,15 @@ def getch():
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
         return ch
 
-# 获取GPU名称
+
 def get_gpu_model():
     try:
         output = subprocess.check_output(
             "nvidia-smi --query-gpu=name --format=csv,noheader",
-            shell=True, stderr=subprocess.DEVNULL
+            shell=True,
+            stderr=subprocess.DEVNULL,
         )
-        gpu_model = output.decode('utf-8').strip().split('\n')[0]
+        gpu_model = output.decode("utf-8").strip().split("\n")[0]
         if gpu_model:
             if "NVIDIA GeForce " in gpu_model:
                 gpu_model = gpu_model.replace("NVIDIA GeForce ", "")
@@ -130,7 +257,7 @@ def get_gpu_model():
         pass
     try:
         output = subprocess.check_output("lspci | grep -i 'vga\\|3d\\|2d'", shell=True)
-        gpu_line = output.decode('utf-8').split('\n')[0]
+        gpu_line = output.decode("utf-8").split("\n")[0]
         gpu_line = gpu_line.strip() if gpu_line.strip() else "Unknown GPU"
         if "NVIDIA GeForce " in gpu_line:
             gpu_line = gpu_line.replace("NVIDIA GeForce ", "")
@@ -138,43 +265,43 @@ def get_gpu_model():
     except Exception:
         return "Unknown GPU"
 
-# 加载配置文件
+
 def load_config():
     if not os.path.exists(CONFIG_FILE):
-        print(f"配置文件 {CONFIG_FILE} 不存在，请先创建！")
+        print(t("config_missing", file=CONFIG_FILE))
         sys.exit(1)
 
     try:
-        with open(CONFIG_FILE, "r", encoding='utf-8') as f:
+        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
             config = json.load(f)
     except json.JSONDecodeError as e:
-        print("配置文件格式错误：", e)
+        print(t("config_json_error"), e)
         sys.exit(1)
 
     for key in ["nickname", "token", "gpuId", "workername", "prefix"]:
         if key not in config:
-            print(f"配置文件中缺少必要字段：{key}")
+            print(t("missing_field", field=key))
             sys.exit(1)
 
     gpu_id = str(config["gpuId"])
     if not gpu_id.isdigit():
-        print("配置文件中 gpuId 字段必须为数字！")
+        print(t("gpu_id_not_digit"))
         sys.exit(1)
     config["gpuId"] = gpu_id
 
     try:
         numberof1 = int(config["numberof1"])
         if numberof1 < 1 or numberof1 > 27:
-            print("配置文件中 numberof1 必须为 1 到 27 之间的数字！")
+            print(t("number_range_error"))
             sys.exit(1)
     except Exception:
-        print("配置文件中 numberof1 必须为数字！")
+        print(t("number_not_digit"))
         sys.exit(1)
     config["numberof1"] = str(numberof1)
     config["device_name"] = get_gpu_model()
     return config
 
-# 获取范围
+
 def get_range(config):
     url = API_URL.rstrip("/") + "/get_range"
     headers = {"Authorization": config["token"]}
@@ -184,18 +311,18 @@ def get_range(config):
         "device_name": config.get("device_name", ""),
         "workername": config["workername"],
         "numberof1": config["numberof1"],
-        "run_id": config["run_id"]
+        "run_id": config["run_id"],
     }
 
     prefix = config.get("prefix", "None")
     if prefix and prefix != "None":
         if len(prefix) > 7:
-            raise ValueError("prefix 长度必须小于等于7")
+            raise ValueError(t("prefix_too_long"))
         valid_hex = set("0123456789ABCDEFabcdef")
         if not all(c in valid_hex for c in prefix):
-            raise ValueError("prefix 必须只包含十六进制字符")
-        if prefix[0].lower() not in ('4', '5', '6', '7'):
-            raise ValueError("prefix 必须以 4 或 5 或 6 或 7 开头")
+            raise ValueError(t("prefix_not_hex"))
+        if prefix[0].lower() not in ("4", "5", "6", "7"):
+            raise ValueError(t("prefix_start_invalid"))
         payload["prefix"] = prefix
 
     try:
@@ -203,10 +330,10 @@ def get_range(config):
         data = response.json()
         return data
     except Exception as e:
-        print("请求获取范围失败:", e)
-        return {"success": False, "message": "请稍后重试。"}
+        print(t("request_range_failed"), e)
+        return {"success": False, "message": t("retry_later")}
 
-# 提交范围
+
 def submit_range(config, range_value, proof_of_work, device_name, server_worker):
     url = API_URL.rstrip("/") + "/submit_range"
     headers = {"Authorization": config["token"]}
@@ -215,16 +342,17 @@ def submit_range(config, range_value, proof_of_work, device_name, server_worker)
         "proof_of_work": proof_of_work,
         "device_name": device_name,
         "workername": server_worker,
-        "run_id":    config["run_id"],
-        "numberof1": config["numberof1"]
+        "run_id": config["run_id"],
+        "numberof1": config["numberof1"],
     }
     try:
         response = requests.post(url, json=payload, headers=headers, timeout=10)
         return response.json()
     except Exception as e:
-        print("提交范围失败:", e)
+        print(t("submit_range_failed"), e)
         return {"success": False, "message": str(e)}
-        
+
+
 def _is_transient_dns_error(msg: str) -> bool:
     if not msg:
         return False
@@ -235,31 +363,32 @@ def _is_transient_dns_error(msg: str) -> bool:
         "temporary failure in name resolution",
         "max retries exceeded with url",
         "failed to establish a new connection",
-        "httpsconnectionpool", 
+        "httpsconnectionpool",
     ]
     return any(k in m for k in keywords)
 
 
-def submit_range_until_success(config, range_value, proof_of_work, device_name, server_worker,
-                               min_delay: int = 1, max_delay: int = 20):
+def submit_range_until_success(
+    config, range_value, proof_of_work, device_name, server_worker, min_delay: int = 1, max_delay: int = 20
+):
     attempt = 1
     delay = min_delay
     while True:
         resp = submit_range(config, range_value, proof_of_work, device_name, server_worker)
         if resp.get("success"):
             if attempt > 1:
-                print(f"范围提交在第 {attempt} 次重试后成功。")
+                print(t("submit_retry_success", attempt=attempt))
             return resp
 
         msg = str(resp.get("message", ""))
         if _is_transient_dns_error(msg):
-            print(f"提交范围失败（第 {attempt} 次，{now_str()}）：{msg}")
-            print(f"检测到临时网络/解析问题，将在 {delay} 秒后重试……（Ctrl+C 可中断）")
+            print(t("submit_dns_fail", attempt=attempt, timestamp=now_str(), message=msg))
+            print(t("transient_notice", delay=delay))
             try:
                 jitter = random.uniform(0, min(10, delay))
                 time.sleep(delay + jitter)
             except KeyboardInterrupt:
-                print("\n检测到 Ctrl+C，已停止重试。")
+                print("\n" + t("ctrl_c_stop_retry"))
                 return resp
             attempt += 1
             delay = min(delay * 2, max_delay)
@@ -268,45 +397,42 @@ def submit_range_until_success(config, range_value, proof_of_work, device_name, 
         return resp
 
 
-# 计算工作证明
 def compute_sha256_sum(private_keys):
     total = 0
     for pk in private_keys:
-        h = hashlib.sha256(pk.encode('utf-8')).hexdigest()
+        h = hashlib.sha256(pk.encode("utf-8")).hexdigest()
         total += int(h, 16)
     return hex(total)[2:]
 
-# 写入地址
+
 def write_addresses_file(addresses):
     with open(TEMP_ADDR_FILE, "w") as f:
         for addr in addresses:
             f.write(addr.strip() + "\n")
         f.write(TARGET_FIXED_ADDR + "\n")
 
-# 扫描主程序
+
 def run_vanitysearch(config, range_value, addresses):
     write_addresses_file(addresses)
     start = f"{range_value}00000000000"
     cmd = [
         VANITYSEARCH_PATH,
-        "-gpuId", config["gpuId"],
-        "-i", TEMP_ADDR_FILE,
-        "-start", start,
-        "-range", "44"
+        "-gpuId",
+        config["gpuId"],
+        "-i",
+        TEMP_ADDR_FILE,
+        "-start",
+        start,
+        "-range",
+        "44",
     ]
 
     scan_start_wall = now_str()
     scan_start_perf = time.perf_counter()
-    print("【    开始时间    】：", scan_start_wall)
-    print("【    扫描中...   】")
+    print(t("start_time_label"), scan_start_wall)
+    print(t("scanning_label"))
 
-    process = subprocess.Popen(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        bufsize=1
-    )
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
 
     found_keys = []
     found_target = False
@@ -315,7 +441,7 @@ def run_vanitysearch(config, range_value, addresses):
     current_line = ""
 
     last_draw_ts = 0.0
-    draw_interval = 0.10  # 100ms
+    draw_interval = 0.10
     last_draw_len = 0
 
     try:
@@ -420,14 +546,14 @@ def run_vanitysearch(config, range_value, addresses):
         print(final_status_line)
     scan_end_wall = now_str()
     scan_elapsed = format_duration(time.perf_counter() - scan_start_perf)
-    print("【    结束时间    】：", scan_end_wall)
-    print("【    本次耗时    】：", scan_elapsed)
+    print(t("end_time_label"), scan_end_wall)
+    print(t("duration_label"), scan_elapsed)
 
     if os.path.exists(TEMP_ADDR_FILE):
         os.remove(TEMP_ADDR_FILE)
     return found_keys, found_target, target_result
 
-# 如果找到私钥，将其保存至txt文件
+
 def save_target_result(target_result):
     output_file = "71bit.txt"
     with open(output_file, "w") as f:
@@ -438,61 +564,62 @@ def save_target_result(target_result):
     if target_result.get("priv_hex"):
         with open(output_file, "a") as f:
             f.write("Priv (HEX): " + target_result.get("priv_hex", "") + "\n")
-    print("【私钥已保存至】：", "【" + output_file + "】")
+    print(t("save_target_result", file=output_file))
 
-# 主程序
+
 def main():
     force_blocking_stdio()
 
     config = load_config()
     run_id = uuid.uuid4().hex[:4]
-    config['run_id'] = run_id
-    config['workername'] = f"{config['workername']}_{run_id}"
-    print("【  当前显卡型号  】：", config.get("device_name"))
+    config["run_id"] = run_id
+    config["workername"] = f"{config['workername']}_{run_id}"
+    print(t("gpu_model"), config.get("device_name"))
 
     if not os.path.exists(VANITYSEARCH_PATH):
-        print(f"错误：未找到 {VANITYSEARCH_PATH} 文件，请确保该文件与程序在同一目录下！")
+        print(t("file_not_found", path=VANITYSEARCH_PATH))
         sys.exit(1)
 
     while True:
-        print("【  获取范围中... 】")
+        print(t("fetching_range"))
         range_data = get_range(config)
         if not range_data.get("success"):
-            print("无法获取范围：", range_data.get("message"))
+            print(t("get_range_failed"), range_data.get("message"))
             sys.exit(1)
             continue
         range_value = range_data.get("range")
         addresses = range_data.get("addresses")
         server_worker = range_data.get("workername")
         if not range_value or not addresses:
-            print("返回数据不完整，重新请求。")
+            print(t("incomplete_data"))
             time.sleep(5)
             continue
-        print(f"【    获得范围    】：  {range_value}")
-        print("【 当前Worker名称 】：", server_worker)
+        print(t("range_received"), range_value)
+        print(t("worker_name"), server_worker)
         try:
             found_keys, found_target, target_result = run_vanitysearch(config, range_value, addresses)
         except Exception as e:
-            print("\nvanitysearch发生错误，请重试。", e)
+            print("\n" + t("vanity_error_retry"), e)
             break
 
         if found_target:
             save_target_result(target_result)
-            print("【恭喜您找到了71位私钥！请在上述文件中查看私钥。】")
-            print("【为了确保您安全转移奖励，强烈建议您使用Mara Pool提供的“Slipstream”服务，以确保在转移途中您的交易不会被脚本替换！（当然，这只是个建议。您无论通过何种方式转移奖励取决于您自己。）】")
-            print("【如果您乐意，请考虑发送一些小费：bc1qkf8cqlngra48s994f5hczhe279ee74f6h8kgfn】")
+            print(t("congrats_found"))
+            print(t("slipstream_advice"))
+            print(t("tip_request"))
             break
 
         if not found_keys:
-            print("\nvanitysearch发生错误，请重试。")
+            print("\n" + t("vanity_error_retry"))
             break
 
         proof_of_work = compute_sha256_sum(found_keys)
         submit_resp = submit_range_until_success(config, range_value, proof_of_work, config["device_name"], server_worker)
         if submit_resp.get("success"):
-            print("范围提交成功。\n")
+            print(t("submit_success"))
+            print()
         else:
-            print("\n范围提交失败，原因：", submit_resp.get("message"))
+            print("\n" + t("submit_failed_reason"), submit_resp.get("message"))
             time.sleep(60)
         time.sleep(1)
 
@@ -501,13 +628,13 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print("\n检测到 Ctrl+C，程序中断。")
+        print("\n" + t("ctrl_c_interrupt"))
     except Exception as e:
-        print("程序出现异常：", e)
+        print(t("program_exception"), e)
         traceback.print_exc()
-    except SystemExit as se:
-        print("程序中断。")
-    print("按任意键退出。。。")
+    except SystemExit:
+        print(t("program_interrupted"))
+    print(t("program_exit"))
     getch()
     if os.name != "nt":
         os.system("stty sane")
